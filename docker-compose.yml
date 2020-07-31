@@ -1,0 +1,123 @@
+version: "3.4"
+services:
+  openvpn-client:
+    container_name: openvpn-client
+    image: dperson/openvpn-client
+    cap_add:
+      - net_admin
+    hostname: openvpn-client
+    networks:
+      - default
+    security_opt:
+      - label:disable
+    tty: true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York 
+      - ROUTE='192.168.1.0/24'
+      - FIREWALL=""
+    volumes:
+      - /dev/net:/dev/net:z
+      - //f/Docker/config/openvpn/:/vpn 
+      #Place .ovpn file in above host folder. 
+      #Add/replace line "auth-user-pass /vpn/vpn.auth" in .ovpn file. 
+      #Create new "vpn.auth" file in same folder with 2 lines. First line should contain vpn username, Second line should have vpn password. 
+    restart: always    
+    ports:
+        # - 8112:8112 #deluge
+        - 8080:8080 #sabnzbd
+        - 9090:9090 #sabnzbd ssl
+        - 9117:9117 #jackett
+        - 8989:8989 #sonarr
+        - 7878:7878 #radarr
+        - 8081:8081 #qbittorrent
+    command: '-d' #-d switch uses dns from vpn provider
+    # dns: 8.8.4.4 #uncomment this line instead and comment out above line, if you prefer to use google dns
+    
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    network_mode: service:openvpn-client # run on the vpn network
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - UMASK_SET=022
+      - WEBUI_PORT=8081
+    volumes:
+      - //f/Docker/config/qbittorrent:/config
+      - //f/Media:/downloads
+    restart: always
+
+  # deluge:
+    # container_name: deluge
+    # image: linuxserver/deluge:latest
+    # restart: always
+    # network_mode: service:openvpn-client # run on the vpn network
+    # environment:
+      # - PUID=1000 # default user id, defined in .env
+      # - PGID=1000 # default group id, defined in .env
+      # - TZ=America/New_York # timezone, defined in .env
+    # volumes:
+      # - //f/Media:/downloads # downloads folder
+      # - //f/Docker/config/deluge:/config # config files
+ 
+  sabnzbd:
+    image: linuxserver/sabnzbd
+    container_name: sabnzbd
+    restart: always
+    network_mode: "service:openvpn-client"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=america/new_york
+    volumes:
+      - //f/docker/config/sabnzbd:/config
+      - //f/media:/downloads
+      - //f/media/incomplete:/incomplete-downloads #optional
+    
+  jackett:
+    container_name: jackett
+    image: linuxserver/jackett:latest
+    restart: always
+    network_mode: service:openvpn-client
+    environment:
+      - PUID=1000 # default user id, defined in .env
+      - PGID=1000 # default group id, defined in .env
+      - TZ=America/New_York # timezone, defined in .env
+    volumes:
+      - //f/Media/torrent-blackhole:/downloads # place where to put .torrent files for manual download
+      - //f/Docker/config/jackett:/config # config files
+
+
+  sonarr:
+    container_name: sonarr
+    image: linuxserver/sonarr:latest
+    restart: always
+    network_mode: service:openvpn-client
+    environment:
+      - PUID=1000 # default user id, defined in .env
+      - PGID=1000 # default group id, defined in .env
+      - TZ=America/New_York # timezone, defined in .env
+    volumes:
+      - //f/Docker/config/sonarr:/config # config files
+      - //f/Series:/tv # tv shows folder
+      - //f/Media:/downloads # download folder
+
+  radarr:
+    container_name: radarr
+    image: linuxserver/radarr:latest
+    restart: always
+    network_mode: service:openvpn-client
+    environment:
+      - PUID=1000 # default user id, defined in .env
+      - PGID=1000 # default group id, defined in .env
+      - TZ=America/New_York # timezone, defined in .env
+    volumes:
+      - //f/Docker/config/radarr:/config # config files
+      - //f/Movies:/movies # movies folder
+      - //f/Media:/downloads # download folder
+
+networks:
+  default:  
